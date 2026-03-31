@@ -29,11 +29,10 @@ OFDM/
 │
 ├── papr_reduction/             # PAPR 降低算法
 │   ├── clipping_filtering.m    # 限幅滤波法
-│   ├── companding_mu.m         # μ 律压扩法
-│   ├── companding_a.m          # A 律压扩法
 │   ├── slm.m                   # 选择映射法（SLM）
 │   ├── pts.m                   # 部分传输序列法（PTS）
 │   ├── tone_reservation.m      # 预留音调法（TR）
+│   ├── companding_mu.m         # μ 律压扩法
 │   └── dnn_papr_reduction.m    # DNN 自编码器法
 │
 ├── analysis/                   # 分析与可视化工具
