@@ -52,26 +52,6 @@ xlabel('限幅比（CR）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
 title('限幅滤波：参数敏感性'); grid on;
 save_figure(fig7, 'fig07_param_clipping');
 
-%%  μ 律压扩：扫描参数 μ
-fprintf('扫描 μ 律参数 mu...\n');
-mu_vals = [1, 2, 5, 10, 50, 255];
-papr_mu = zeros(length(mu_vals), 1);
-for m = 1:length(mu_vals)
-    pvals = zeros(N_sym, 1);
-    for i = 1:N_sym
-        [x_mu, ~] = companding_mu(x_orig_all(:,i), mu_vals(m));
-        pvals(i) = compute_papr(x_mu);
-    end
-    papr_mu(m) = papr_metric(pvals);
-end
-
-fig8 = figure('Position', [100, 100, 600, 400]);
-semilogx(mu_vals, papr_mu, '-s', 'Color', colors(3,:), 'LineWidth', 2, 'MarkerFaceColor', colors(3,:));
-hold on; yline(baseline, '--k', 'Original'); hold off;
-xlabel('mu 参数'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('mu 律压扩：参数敏感性'); grid on;
-save_figure(fig8, 'fig08_param_companding');
-
 %% SLM：扫描候选数 U
 fprintf('扫描 SLM 候选数 U...\n');
 U_vals = [2, 4, 8, 16, 32];
@@ -88,7 +68,7 @@ for u = 1:length(U_vals)
 end
 
 fig9 = figure('Position', [100, 100, 600, 400]);
-plot(U_vals, papr_slm, '-^', 'Color', colors(5,:), 'LineWidth', 2, 'MarkerFaceColor', colors(5,:));
+plot(U_vals, papr_slm, '-^', 'Color', colors(3,:), 'LineWidth', 2, 'MarkerFaceColor', colors(3,:));
 hold on; yline(baseline, '--k', 'Original'); hold off;
 xlabel('候选相位序列数（U）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
 title('SLM：参数敏感性'); grid on;
@@ -111,8 +91,8 @@ for w = 1:length(W_sets)
         end
         papr_pts_v(v) = papr_metric(pvals);
     end
-    plot(V_vals, papr_pts_v, ['-' markers{w+5}], 'Color', colors(5+w,:), ...
-         'LineWidth', 2, 'MarkerFaceColor', colors(5+w,:), 'DisplayName', W_labels{w});
+    plot(V_vals, papr_pts_v, ['-' markers{w+4}], 'Color', colors(4+w,:), ...
+         'LineWidth', 2, 'MarkerFaceColor', colors(4+w,:), 'DisplayName', W_labels{w});
 end
 yline(baseline, '--k', 'Original');
 hold off;
@@ -134,11 +114,31 @@ for r = 1:length(ratio_vals)
 end
 
 fig11 = figure('Position', [100, 100, 600, 400]);
-plot(ratio_vals*100, papr_tr, '-d', 'Color', colors(7,:), 'LineWidth', 2, 'MarkerFaceColor', colors(7,:));
+plot(ratio_vals*100, papr_tr, '-d', 'Color', colors(5,:), 'LineWidth', 2, 'MarkerFaceColor', colors(5,:));
 hold on; yline(baseline, '--k', 'Original'); hold off;
 xlabel('预留子载波比例（%）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
 title('预留音调：参数敏感性'); grid on;
 save_figure(fig11, 'fig11_param_tr');
+
+%%  μ 律压扩：扫描参数 μ
+fprintf('扫描 μ 律参数 mu...\n');
+mu_vals = [1, 2, 5, 10, 50, 255];
+papr_mu = zeros(length(mu_vals), 1);
+for m = 1:length(mu_vals)
+    pvals = zeros(N_sym, 1);
+    for i = 1:N_sym
+        [x_mu, ~] = companding_mu(x_orig_all(:,i), mu_vals(m));
+        pvals(i) = compute_papr(x_mu);
+    end
+    papr_mu(m) = papr_metric(pvals);
+end
+
+fig8 = figure('Position', [100, 100, 600, 400]);
+semilogx(mu_vals, papr_mu, '-s', 'Color', colors(6,:), 'LineWidth', 2, 'MarkerFaceColor', colors(6,:));
+hold on; yline(baseline, '--k', 'Original'); hold off;
+xlabel('mu 参数'); ylabel('PAPR at CCDF=10^{-3}（dB）');
+title('mu 律压扩：参数敏感性'); grid on;
+save_figure(fig8, 'fig08_param_companding');
 
 save('results/data/param_sweep_results.mat', 'CR_vals', 'papr_clip', ...
      'mu_vals', 'papr_mu', 'U_vals', 'papr_slm', 'V_vals', ...

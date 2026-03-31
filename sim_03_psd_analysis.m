@@ -10,7 +10,7 @@ N = params.N_fft;
 N_os = params.N_os;
 N_sym_psd = 200;  % 用于 PSD 平均估计的符号数
 
-fprintf('=== 实验 3：PSD 分析 ===\n');
+fprintf('实验 3：PSD 分析\n');
 
 % 拼接多个符号用于频谱估计
 x_concat = struct();

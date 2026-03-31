@@ -26,8 +26,8 @@ for i = 1:N_sym
 end
 
 % 待对比的算法列表
-algo_names = {'Original', 'Clipping (CR=1.2)', 'mu-law (mu=10)', ...
-              'A-law (A=87.6)', 'SLM (U=8)', 'PTS (V=4)', 'Tone Res. (10%)'};
+algo_names = {'Original', 'Clipping (CR=1.2)', 'SLM (U=8)', ...
+              'PTS (V=4)', 'Tone Res. (10%)', 'mu-law (mu=10)'};
 n_algo = length(algo_names);
 papr_results = zeros(N_sym, n_algo);
 
@@ -44,40 +44,33 @@ for i = 1:N_sym
     papr_results(i, 2) = compute_papr(x_cl);
 end
 
-% 3) μ 律压扩
-fprintf('计算：μ 律压扩...\n');
-for i = 1:N_sym
-    [x_mu, ~] = companding_mu(x_orig_all(:,i), 10);
-    papr_results(i, 3) = compute_papr(x_mu);
-end
-
-% 4) A 律压扩
-fprintf('计算：A 律压扩...\n');
-for i = 1:N_sym
-    [x_a, ~] = companding_a(x_orig_all(:,i), 87.6);
-    papr_results(i, 4) = compute_papr(x_a);
-end
-
-% 5) SLM
+% 3) SLM
 fprintf('计算：SLM (U=8)...\n');
 P_slm = exp(1j * 2 * pi * rand(N, 8));
 P_slm(:,1) = ones(N, 1);
 for i = 1:N_sym
-    [~, ~, papr_results(i, 5)] = slm(X_all(:,i), params, 8, P_slm);
+    [~, ~, papr_results(i, 3)] = slm(X_all(:,i), params, 8, P_slm);
 end
 
-% 6) PTS
+% 4) PTS
 fprintf('计算：PTS (V=4)...\n');
 W_pts = [1, -1, 1j, -1j];
 for i = 1:N_sym
-    [~, ~, papr_results(i, 6)] = pts(X_all(:,i), params, 4, 'interleaved', W_pts);
+    [~, ~, papr_results(i, 4)] = pts(X_all(:,i), params, 4, 'interleaved', W_pts);
 end
 
-% 7) 预留音调
+% 5) 预留音调
 fprintf('计算：预留音调...\n');
 for i = 1:N_sym
     [x_tr, ~, ~] = tone_reservation(X_all(:,i), params, 0.10, 10);
-    papr_results(i, 7) = compute_papr(x_tr);
+    papr_results(i, 5) = compute_papr(x_tr);
+end
+
+% 6) μ 律压扩
+fprintf('计算：μ 律压扩...\n');
+for i = 1:N_sym
+    [x_mu, ~] = companding_mu(x_orig_all(:,i), 10);
+    papr_results(i, 6) = compute_papr(x_mu);
 end
 
 % 保存数据

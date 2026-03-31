@@ -16,18 +16,17 @@ bits = randi([0 1], N * params.bps, 1);
 X = ofdm_mod(bits, params.mod_type);
 [x_orig, ~] = ofdm_transmitter(X, params);
 
-algo_names = {'Clipping', 'mu-law', 'A-law', 'SLM(U=8)', ...
-              'PTS(V=4)', 'Tone Res.'};
+algo_names = {'Clipping', 'SLM(U=8)', ...
+              'PTS(V=4)', 'Tone Res.', 'mu-law'};
 n_algo = length(algo_names);
 
 % 各算法理论复杂度
 theory_labels = {
     'O(NL)';                 % 限幅：一次遍历 + FFT/IFFT
-    'O(NL)';                 % 压扩：逐元素运算
-    'O(NL)';                 % A律：逐元素运算
     'O(U \cdot NL\log NL)';  % SLM：U 次 IFFT
     'O(|W|^{V-1} \cdot NL)'; % PTS：穷举相位组合，每次向量加
     'O(I \cdot NL\log NL)';  % 预留音调：I 次迭代，每次 FFT/IFFT
+    'O(NL)';                 % 压扩：逐元素运算
 };
 
 % 实测运行时间
@@ -45,11 +44,10 @@ for trial = 1:N_trials
     [x_t, ~] = ofdm_transmitter(X_t, params);
 
     tic; clipping_filtering(x_t, params, 1.2); runtimes(1) = runtimes(1) + toc;
-    tic; companding_mu(x_t, 10); runtimes(2) = runtimes(2) + toc;
-    tic; companding_a(x_t, 87.6); runtimes(3) = runtimes(3) + toc;
-    tic; slm(X_t, params, 8, P_slm); runtimes(4) = runtimes(4) + toc;
-    tic; pts(X_t, params, 4, 'interleaved', W_pts); runtimes(5) = runtimes(5) + toc;
-    tic; tone_reservation(X_t, params, 0.10, 10); runtimes(6) = runtimes(6) + toc;
+    tic; slm(X_t, params, 8, P_slm); runtimes(2) = runtimes(2) + toc;
+    tic; pts(X_t, params, 4, 'interleaved', W_pts); runtimes(3) = runtimes(3) + toc;
+    tic; tone_reservation(X_t, params, 0.10, 10); runtimes(4) = runtimes(4) + toc;
+    tic; companding_mu(x_t, 10); runtimes(5) = runtimes(5) + toc;
 end
 runtimes = runtimes / N_trials * 1000;  % 换算为毫秒/符号
 

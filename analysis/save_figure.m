@@ -4,7 +4,6 @@ function save_figure(fig, filename)
     if ~exist(fig_dir, 'dir')
         mkdir(fig_dir);
     end
-
     % 将所有文本对象的解释器设为 none，避免 savefig 时中文触发 tex 解析错误
     all_text = findall(fig, 'Type', 'text');
     for k = 1:numel(all_text)
