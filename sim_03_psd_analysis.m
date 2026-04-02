@@ -15,7 +15,7 @@ fprintf('实验 3：PSD 分析\n');
 % 拼接多个符号用于频谱估计
 x_concat = struct();
 algo_names = {'Original', 'Clipping (CR=0.8)', 'Clipping+Filter (CR=0.8)', ...
-              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)'};
+              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)', 'Golay Coding'};
 n_algo = length(algo_names);
 
 % 初始化信号缓冲区
@@ -50,26 +50,37 @@ for i = 1:N_sym_psd
     % 6) PTS
     [x_pts, ~, ~] = pts(X, params, 4, 'interleaved', W_pts);
     x_concat(6).data = [x_concat(6).data; x_pts];
+    % 7) Golay 编码
+    [x_gl, ~, ~] = golay_coding(N, params, 16);
+    x_concat(7).data = [x_concat(7).data; x_gl];
 end
+
 % 使用 Welch 方法计算并绘制 PSD
-fig = figure('Position', [100, 100, 900, 600]);
-hold on;
+psd_colors_idx = [1, 2, 2, 6, 3, 4, 7];  % 映射到 plot_config 颜色
+psd_lstyles = {'-', '--', '-', '-.', ':', '-', '--'};
+fig = figure('Position', [100, 100, 1000, 600]);
+ax = axes(fig);
+hold(ax, 'on');
 Fs = 1;% 归一化频率
 nfft_psd = 1024;
 
 for a = 1:n_algo
     [pxx, f] = pwelch(x_concat(a).data, hamming(nfft_psd), nfft_psd/2, nfft_psd, Fs, 'centered');
     pxx_dB = 10*log10(pxx / max(pxx));  % 归一化到 0 dB 峰值
-    plot(f, pxx_dB, 'Color', colors(a,:), 'LineStyle', lstyles{a}, ...
+    plot(ax, f, pxx_dB, 'Color', colors(psd_colors_idx(a),:), 'LineStyle', psd_lstyles{a}, ...
          'LineWidth', 1.5, 'DisplayName', algo_names{a});
 end
-hold off;
-xlabel('归一化频率');
-ylabel('功率谱密度（dB）');
-title('PSD 对比：频谱再生分析');
-legend('Location', 'south');
-ylim([-60 5]);
-grid on;
+hold(ax, 'off');
+xlabel(ax, '归一化频率');
+ylabel(ax, '功率谱密度（dB）');
+title(ax, 'PSD 对比：频谱再生分析');
+ylim(ax, [-60 5]);
+grid(ax, 'on');
+
+% 图例放在绘图区域外右侧，避免遮挡
+lg = legend(ax, 'Location', 'eastoutside');
+set(lg, 'FontSize', 9);
+
 save_figure(fig, 'fig04_psd_comparison');
 % 保存数据
 save('results/data/psd_results.mat', 'algo_names', 'params');

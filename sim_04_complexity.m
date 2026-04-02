@@ -17,7 +17,7 @@ X = ofdm_mod(bits, params.mod_type);
 [x_orig, ~] = ofdm_transmitter(X, params);
 
 algo_names = {'Clipping', 'SLM(U=8)', ...
-              'PTS(V=4)', 'Tone Res.', 'mu-law'};
+              'PTS(V=4)', 'Tone Res.', 'mu-law', 'Golay'};
 n_algo = length(algo_names);
 
 % 各算法理论复杂度
@@ -27,6 +27,7 @@ theory_labels = {
     'O(|W|^{V-1} \cdot NL)'; % PTS：穷举相位组合，每次向量加
     'O(I \cdot NL\log NL)';  % 预留音调：I 次迭代，每次 FFT/IFFT
     'O(NL)';                 % 压扩：逐元素运算
+    'O(C \cdot NL\log NL)';  % Golay：C 次候选，每次 IFFT
 };
 
 % 实测运行时间
@@ -35,8 +36,10 @@ runtimes = zeros(n_algo, 1);
 P_slm = exp(1j * 2 * pi * rand(N, 8));
 P_slm(:,1) = ones(N, 1);
 W_pts = [1, -1, 1j, -1j];
+% 预热
 clipping_filtering(x_orig, params, 1.2);
 companding_mu(x_orig, 10);
+golay_coding(N, params, 16);
 
 for trial = 1:N_trials
     bits_t = randi([0 1], N * params.bps, 1);
@@ -48,6 +51,7 @@ for trial = 1:N_trials
     tic; pts(X_t, params, 4, 'interleaved', W_pts); runtimes(3) = runtimes(3) + toc;
     tic; tone_reservation(X_t, params, 0.10, 10); runtimes(4) = runtimes(4) + toc;
     tic; companding_mu(x_t, 10); runtimes(5) = runtimes(5) + toc;
+    tic; golay_coding(N, params, 16); runtimes(6) = runtimes(6) + toc;
 end
 runtimes = runtimes / N_trials * 1000;  % 换算为毫秒/符号
 
@@ -60,15 +64,16 @@ for a = 1:n_algo
 end
 
 % 各算法运行时间
-fig1 = figure('Position', [100, 100, 800, 500]);
-b = bar(runtimes, 'FaceColor', 'flat');
+fig1 = figure('Position', [100, 100, 900, 500]);
+ax1 = axes(fig1);
+b = bar(ax1, runtimes, 'FaceColor', 'flat');
 for a = 1:n_algo
-    b.CData(a,:) = colors(a+1, :); 
+    b.CData(a,:) = colors(a+1, :);
 end
-set(gca, 'XTickLabel', algo_names, 'TickLabelInterpreter', 'latex');
-ylabel('每 OFDM 符号运行时间（ms）');
-title('计算复杂度对比');
-grid on;
+set(ax1, 'XTickLabel', algo_names, 'TickLabelInterpreter', 'latex');
+ylabel(ax1, '每 OFDM 符号运行时间（ms）');
+title(ax1, '计算复杂度对比');
+grid(ax1, 'on');
 save_figure(fig1, 'fig05_complexity_bar');
 
 % 散点图：PAPR 降低量 vs 复杂度
@@ -77,22 +82,27 @@ if exist('results/data/ccdf_results.mat', 'file')
     load('results/data/ccdf_results.mat', 'papr_results');
     % CCDF=1e-3 时的 PAPR的99.9 百分位数
     papr_at_1e3 = prctile(papr_results, 99.9);
-    papr_reduction = papr_at_1e3(1) - papr_at_1e3(2:end); 
+    papr_reduction = papr_at_1e3(1) - papr_at_1e3(2:end);
 
-    fig2 = figure('Position', [100, 100, 800, 600]);
-    hold on;
+    fig2 = figure('Position', [100, 100, 900, 600]);
+    ax2 = axes(fig2);
+    hold(ax2, 'on');
     for a = 1:n_algo
-        scatter(runtimes(a), papr_reduction(a), 100, colors(a+1,:), 'filled', ...
+        scatter(ax2, runtimes(a), papr_reduction(a), 100, colors(a+1,:), 'filled', ...
             'Marker', markers{a+1}, 'DisplayName', algo_names{a});
-        text(runtimes(a)*1.05, papr_reduction(a), algo_names{a}, ...
+        text(ax2, runtimes(a)*1.05, papr_reduction(a), algo_names{a}, ...
             'Interpreter', 'latex', 'FontSize', 10);
     end
-    hold off;
-    xlabel('每符号运行时间（ms）');
-    ylabel('CCDF=10^{-3} 处的 PAPR 降低量（dB）');
-    title('PAPR 降低量 vs 复杂度权衡');
-    legend('Location', 'northwest');
-    grid on;
+    hold(ax2, 'off');
+    xlabel(ax2, '每符号运行时间（ms）');
+    ylabel(ax2, 'CCDF=10^{-3} 处的 PAPR 降低量（dB）');
+    title(ax2, 'PAPR 降低量 vs 复杂度权衡');
+    grid(ax2, 'on');
+
+    % 图例放在绘图区域外右侧，避免遮挡
+    lg = legend(ax2, 'Location', 'eastoutside');
+    set(lg, 'FontSize', 9);
+
     save_figure(fig2, 'fig06_complexity_tradeoff');
 end
 

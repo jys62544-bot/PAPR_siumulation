@@ -27,7 +27,8 @@ end
 
 % 待对比的算法列表
 algo_names = {'Original', 'Clipping (CR=1.2)', 'SLM (U=8)', ...
-              'PTS (V=4)', 'Tone Res. (10%)', 'mu-law (mu=10)'};
+              'PTS (V=4)', 'Tone Res. (10%)', 'mu-law (mu=10)', ...
+              'Golay Coding'};
 n_algo = length(algo_names);
 papr_results = zeros(N_sym, n_algo);
 
@@ -73,31 +74,42 @@ for i = 1:N_sym
     papr_results(i, 6) = compute_papr(x_mu);
 end
 
+% 7) Golay 互补序列编码
+fprintf('计算：Golay 编码...\n');
+for i = 1:N_sym
+    [x_gl, ~, gl_info] = golay_coding(N, params, 16);
+    papr_results(i, 7) = gl_info.papr;
+end
+
 % 保存数据
 save('results/data/ccdf_results.mat', 'papr_results', 'algo_names', 'params');
 
 % 绘制 CCDF 曲线
-fig = figure('Position', [100, 100, 800, 600]);
-hold on;
+fig = figure('Position', [100, 100, 900, 600]);
+ax = axes(fig);
+hold(ax, 'on');
 for a = 1:n_algo
     [pa, cc] = compute_ccdf(papr_results(:, a));
     mk_idx = 1:max(1,floor(N_sym/15)):N_sym;
-    plot(pa, cc, 'Color', colors(a,:), 'LineStyle', lstyles{a}, ...
+    plot(ax, pa, cc, 'Color', colors(a,:), 'LineStyle', lstyles{a}, ...
          'LineWidth', 1.5, 'DisplayName', algo_names{a});
-    plot(pa(mk_idx), cc(mk_idx), markers{a}, 'Color', colors(a,:), ...
+    plot(ax, pa(mk_idx), cc(mk_idx), markers{a}, 'Color', colors(a,:), ...
          'MarkerSize', 6, 'MarkerFaceColor', colors(a,:), ...
          'HandleVisibility', 'off');
 end
-hold off;
+hold(ax, 'off');
 
-set(gca, 'YScale', 'log');
-xlabel('PAPR_0 (dB)');
-ylabel('Pr(PAPR > PAPR_0)');
-title('各 PAPR 降低算法的 CCDF 对比');
-legend('Location', 'southwest');
-xlim([4 14]);
-ylim([1e-3 1]);
-grid on;
+set(ax, 'YScale', 'log');
+xlabel(ax, 'PAPR_0 (dB)');
+ylabel(ax, 'Pr(PAPR > PAPR_0)');
+title(ax, '各 PAPR 降低算法的 CCDF 对比');
+xlim(ax, [2 14]);
+ylim(ax, [1e-3 1]);
+grid(ax, 'on');
+
+% 图例放在绘图区域外右侧，避免遮挡
+lg = legend(ax, 'Location', 'eastoutside');
+set(lg, 'FontSize', 9);
 
 save_figure(fig, 'fig01_ccdf_comparison');
 fprintf('实验 1 完成。\n');

@@ -6,11 +6,11 @@ function main_run_all()
     fprintf('  OFDM PAPR系统仿真\n');
     fprintf('  %s\n', datetime('now'));
     total_tic = tic;
-    run_experiment(1, 6, 'sim_01_ccdf_comparison');
-    run_experiment(2, 6, 'sim_02_ber_comparison');
-    run_experiment(3, 6, 'sim_03_psd_analysis');
-    run_experiment(4, 6, 'sim_04_complexity');
-    run_experiment(5, 6, 'sim_05_param_sweep');
+    % run_experiment(1, 6, 'sim_01_ccdf_comparison');
+    % run_experiment(2, 6, 'sim_02_ber_comparison');
+    % run_experiment(3, 6, 'sim_03_psd_analysis');
+    % run_experiment(4, 6, 'sim_04_complexity');
+    % run_experiment(5, 6, 'sim_05_param_sweep');
     run_experiment(6, 6, 'sim_06_dnn_papr');
 
     total_time = toc(total_tic);

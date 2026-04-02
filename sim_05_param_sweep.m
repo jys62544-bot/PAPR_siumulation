@@ -45,11 +45,16 @@ for c = 1:length(CR_vals)
     papr_clip(c) = papr_metric(pvals);
 end
 
-fig7 = figure('Position', [100, 100, 600, 400]);
-plot(CR_vals, papr_clip, '-o', 'Color', colors(2,:), 'LineWidth', 2, 'MarkerFaceColor', colors(2,:));
-hold on; yline(baseline, '--k', 'Original'); hold off;
-xlabel('限幅比（CR）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('限幅滤波：参数敏感性'); grid on;
+fig7 = figure('Position', [100, 100, 700, 450]);
+ax7 = axes(fig7);
+plot(ax7, CR_vals, papr_clip, '-o', 'Color', colors(2,:), 'LineWidth', 2, ...
+     'MarkerFaceColor', colors(2,:), 'DisplayName', 'Clipping');
+hold(ax7, 'on');
+yline(ax7, baseline, '--k', 'DisplayName', 'Original');
+hold(ax7, 'off');
+xlabel(ax7, '限幅比（CR）'); ylabel(ax7, 'PAPR at CCDF=10^{-3}（dB）');
+title(ax7, '限幅滤波：参数敏感性'); grid(ax7, 'on');
+lg7 = legend(ax7, 'Location', 'eastoutside'); set(lg7, 'FontSize', 9);
 save_figure(fig7, 'fig07_param_clipping');
 
 %% SLM：扫描候选数 U
@@ -67,11 +72,16 @@ for u = 1:length(U_vals)
     papr_slm(u) = papr_metric(pvals);
 end
 
-fig9 = figure('Position', [100, 100, 600, 400]);
-plot(U_vals, papr_slm, '-^', 'Color', colors(3,:), 'LineWidth', 2, 'MarkerFaceColor', colors(3,:));
-hold on; yline(baseline, '--k', 'Original'); hold off;
-xlabel('候选相位序列数（U）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('SLM：参数敏感性'); grid on;
+fig9 = figure('Position', [100, 100, 700, 450]);
+ax9 = axes(fig9);
+plot(ax9, U_vals, papr_slm, '-^', 'Color', colors(3,:), 'LineWidth', 2, ...
+     'MarkerFaceColor', colors(3,:), 'DisplayName', 'SLM');
+hold(ax9, 'on');
+yline(ax9, baseline, '--k', 'DisplayName', 'Original');
+hold(ax9, 'off');
+xlabel(ax9, '候选相位序列数（U）'); ylabel(ax9, 'PAPR at CCDF=10^{-3}（dB）');
+title(ax9, 'SLM：参数敏感性'); grid(ax9, 'on');
+lg9 = legend(ax9, 'Location', 'eastoutside'); set(lg9, 'FontSize', 9);
 save_figure(fig9, 'fig09_param_slm');
 
 %% PTS：扫描子块数 V 和相位因子集 W
@@ -80,8 +90,9 @@ V_vals = [2, 4, 8];
 W_sets = {[1, -1], [1, -1, 1j, -1j]};
 W_labels = {'W={+/-1}', 'W={+/-1, +/-j}'};
 
-fig10 = figure('Position', [100, 100, 600, 400]);
-hold on;
+fig10 = figure('Position', [100, 100, 700, 450]);
+ax10 = axes(fig10);
+hold(ax10, 'on');
 for w = 1:length(W_sets)
     papr_pts_v = zeros(length(V_vals), 1);
     for v = 1:length(V_vals)
@@ -91,13 +102,14 @@ for w = 1:length(W_sets)
         end
         papr_pts_v(v) = papr_metric(pvals);
     end
-    plot(V_vals, papr_pts_v, ['-' markers{w+4}], 'Color', colors(4+w,:), ...
+    plot(ax10, V_vals, papr_pts_v, ['-' markers{w+4}], 'Color', colors(4+w,:), ...
          'LineWidth', 2, 'MarkerFaceColor', colors(4+w,:), 'DisplayName', W_labels{w});
 end
-yline(baseline, '--k', 'Original');
-hold off;
-xlabel('子块数（V）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('PTS：参数敏感性'); legend('Location', 'northeast'); grid on;
+yline(ax10, baseline, '--k', 'DisplayName', 'Original');
+hold(ax10, 'off');
+xlabel(ax10, '子块数（V）'); ylabel(ax10, 'PAPR at CCDF=10^{-3}（dB）');
+title(ax10, 'PTS：参数敏感性'); grid(ax10, 'on');
+lg10 = legend(ax10, 'Location', 'eastoutside'); set(lg10, 'FontSize', 9);
 save_figure(fig10, 'fig10_param_pts');
 
 %% 预留音调：扫描预留比例
@@ -113,11 +125,16 @@ for r = 1:length(ratio_vals)
     papr_tr(r) = papr_metric(pvals);
 end
 
-fig11 = figure('Position', [100, 100, 600, 400]);
-plot(ratio_vals*100, papr_tr, '-d', 'Color', colors(5,:), 'LineWidth', 2, 'MarkerFaceColor', colors(5,:));
-hold on; yline(baseline, '--k', 'Original'); hold off;
-xlabel('预留子载波比例（%）'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('预留音调：参数敏感性'); grid on;
+fig11 = figure('Position', [100, 100, 700, 450]);
+ax11 = axes(fig11);
+plot(ax11, ratio_vals*100, papr_tr, '-d', 'Color', colors(5,:), 'LineWidth', 2, ...
+     'MarkerFaceColor', colors(5,:), 'DisplayName', 'Tone Res.');
+hold(ax11, 'on');
+yline(ax11, baseline, '--k', 'DisplayName', 'Original');
+hold(ax11, 'off');
+xlabel(ax11, '预留子载波比例（%）'); ylabel(ax11, 'PAPR at CCDF=10^{-3}（dB）');
+title(ax11, '预留音调：参数敏感性'); grid(ax11, 'on');
+lg11 = legend(ax11, 'Location', 'eastoutside'); set(lg11, 'FontSize', 9);
 save_figure(fig11, 'fig11_param_tr');
 
 %%  μ 律压扩：扫描参数 μ
@@ -133,11 +150,16 @@ for m = 1:length(mu_vals)
     papr_mu(m) = papr_metric(pvals);
 end
 
-fig8 = figure('Position', [100, 100, 600, 400]);
-semilogx(mu_vals, papr_mu, '-s', 'Color', colors(6,:), 'LineWidth', 2, 'MarkerFaceColor', colors(6,:));
-hold on; yline(baseline, '--k', 'Original'); hold off;
-xlabel('mu 参数'); ylabel('PAPR at CCDF=10^{-3}（dB）');
-title('mu 律压扩：参数敏感性'); grid on;
+fig8 = figure('Position', [100, 100, 700, 450]);
+ax8 = axes(fig8);
+semilogx(ax8, mu_vals, papr_mu, '-s', 'Color', colors(6,:), 'LineWidth', 2, ...
+         'MarkerFaceColor', colors(6,:), 'DisplayName', 'mu-law');
+hold(ax8, 'on');
+yline(ax8, baseline, '--k', 'DisplayName', 'Original');
+hold(ax8, 'off');
+xlabel(ax8, 'mu 参数'); ylabel(ax8, 'PAPR at CCDF=10^{-3}（dB）');
+title(ax8, 'mu 律压扩：参数敏感性'); grid(ax8, 'on');
+lg8 = legend(ax8, 'Location', 'eastoutside'); set(lg8, 'FontSize', 9);
 save_figure(fig8, 'fig08_param_companding');
 
 save('results/data/param_sweep_results.mat', 'CR_vals', 'papr_clip', ...

@@ -3,8 +3,8 @@ function [x_reduced, C, reserved_idx] = tone_reservation(X, params, reserved_rat
 %   输入：
 %     X              - 频域数据（N_fft x 1）
 %     params         - get_default_params() 返回的参数结构体
-%     reserved_ratio - 预留子载波比例（如 0.10 表示 10%）
-%     max_iter       - 最大迭代次数（如 10）
+%     reserved_ratio - 预留子载波比例
+%     max_iter       - 最大迭代次数
 %   输出：
 %     x_reduced    - PAPR 降低后的时域信号（N_fft*L x 1）
 %     C            - 频域峰值抵消信号（N_fft x 1）
