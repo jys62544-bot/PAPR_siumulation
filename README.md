@@ -1,6 +1,6 @@
-# OFDM PAPR 降低仿真套件
+# OFDM PAPR 降低技术仿真
 
-基于 MATLAB 的 OFDM 峰均功率比（PAPR）降低算法仿真平台，涵盖经典信号处理方法与深度学习方法的全面对比分析。系统支持循环前缀（CP）的添加与去除，可用于多径信道仿真。
+基于 MATLAB 的 OFDM 峰均功率比（PAPR）降低技术仿真平台，涵盖经典信号处理方法与深度学习方法的全面对比分析。系统包括接收机仿真、发射机仿真、循环前缀仿真、多径信道仿真、星座映射与解映射仿真、高斯信道仿真、功率谱密度分析、计算复杂度分析、参数敏感性扫描以及BER vs SNR 对比和CCDF 曲线对比。
 
 ## 项目概述
 
@@ -24,9 +24,9 @@ OFDM/
 │   ├── ofdm_demod.m            # 星座解映射（硬判决）
 │   ├── ofdm_transmitter.m      # OFDM 发射机（过采样 IFFT + CP）
 │   ├── ofdm_receiver.m         # OFDM 接收机（去 CP + FFT + 均衡）
-│   ├── cp_add.m                # 循环前缀添加（供 PAPR 算法处理后使用）
+│   ├── cp_add.m                # 循环前缀添加
 │   ├── channel_awgn.m          # AWGN 信道
-│   └── channel_multipath.m     # ITU 多径衰落信道（EPA/ETU）
+│   └── channel_multipath.m     # ITU 多径衰落信道
 │
 ├── papr_reduction/             # PAPR 降低算法
 │   ├── clipping_filtering.m    # 限幅滤波法
@@ -43,7 +43,7 @@ OFDM/
 │   ├── plot_config.m           # 统一绘图样式配置
 │   └── save_figure.m           # 保存图形为 .fig 和 .png
 │
-└── results/                    # 仿真结果（自动生成）
+└── results/                    # 仿真结果保存
     ├── figures/                # 输出图像（.fig + .png）
     └── data/                   # 仿真数据（.mat）
 ```
@@ -52,8 +52,8 @@ OFDM/
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| N_fft | 256 | FFT 点数（子载波数） |
-| N_cp | 64 | 循环前缀长度（N_fft/4） |
+| N_fft | 256 | FFT 点数&子载波数 |
+| N_cp | 64 | 循环前缀长度16 |
 | 调制方式 | 16QAM | 支持 QPSK / 16QAM / 64QAM |
 | 过采样倍数 L | 4 | 精确捕捉连续时间峰值 |
 | 仿真符号数 | 10000 | 保证 CCDF 可靠至 1e-3 |
@@ -75,7 +75,7 @@ OFDM/
 ## 实验说明
 
 ### 实验 1：CCDF 对比（`sim_01_ccdf_comparison.m`）
-对比 6 种方案（含原始信号）的互补累积分布函数，以 PAPR 超越概率 10^-3 作为性能指标。输出：`fig01_ccdf_comparison.png`。
+对比 6 种方案的互补累积分布函数，以 PAPR 超越概率 10^-3 作为性能指标。输出：`fig01_ccdf_comparison.png`。
 
 ### 实验 2：BER 对比（`sim_02_ber_comparison.m`）
 在 AWGN 信道下测量各算法的误比特率，展示 PAPR 降低方法对通信质量的影响。输出：`fig02_ber_awgn.png`。
@@ -93,7 +93,7 @@ OFDM/
 
 采用"**限幅 + DNN 逐子载波补偿**"的两阶段方案，结合传统限幅的 PAPR 降低能力与深度学习的失真补偿能力。
 
-#### 方法原理
+#### DNN 限幅+逐子载波补偿方法原理
 
 **核心思想**：发射端用硬限幅将 PAPR 强制降低，接收端用 DNN 学习补偿限幅引入的非线性失真，从而在获得 PAPR 增益的同时最大程度恢复 BER 性能。
 
@@ -193,9 +193,9 @@ params.N_sym = 5000;        % 减少仿真符号数以加快速度
 ## 软件要求
 
 - MATLAB R2021a 或更高版本
-- Signal Processing Toolbox（`pwelch` 等函数）
+- Signal Processing Toolbox
 - Deep Learning Toolbox（仅实验 6 需要）
 
 ## 许可证
 
-本项目用于西北工业大学MIMO-OFDM无线通信技术课程设计
+本项目用于孙剑宇的西北工业大学MIMO-OFDM无线通信技术课程设计
