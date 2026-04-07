@@ -1,5 +1,6 @@
 % SIM_03_PSD_ANALYSIS
-% 对比 PAPR 降低后各信号的功率谱密度
+% 对比 PAPR 降低后各信号的功率谱密度。
+% 支持逐子载波自适应调制。
 clear; clc; close all;
 addpath('core', 'analysis', 'papr_reduction');
 [colors, markers, lstyles] = plot_config();
@@ -8,17 +9,26 @@ rng(42);
 
 N = params.N_fft;
 N_os = params.N_os;
-N_sym_psd = 200;  % 用于 PSD 平均估计的符号数
+N_sym_psd = 200;
 
 fprintf('实验 3：PSD 分析\n');
+
+%% 自适应调制设置
+if params.adaptive
+    dummy_x = zeros(N_os, 1);
+    [~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
+    snr_work = 15;
+    [mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
+    fprintf('自适应调制，%s 信道，工作 SNR=%d dB，平均 bps=%.2f\n', ...
+        params.channel_model, snr_work, mean(mod_map));
+end
 
 % 拼接多个符号用于频谱估计
 x_concat = struct();
 algo_names = {'Original', 'Clipping (CR=0.8)', 'Clipping+Filter (CR=0.8)', ...
-              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)', 'Golay Coding'};
+              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)', 'Golay (N=16)'};
 n_algo = length(algo_names);
 
-% 初始化信号缓冲区
 for a = 1:n_algo
     x_concat(a).data = [];
 end
@@ -28,9 +38,14 @@ P_slm(:,1) = ones(N,1);
 W_pts = [1, -1, 1j, -1j];
 
 for i = 1:N_sym_psd
-    bits = randi([0 1], N * params.bps, 1);
-    X = ofdm_mod(bits, params.mod_type);
+    if params.adaptive
+        [X, ~, ~] = ofdm_mod_adaptive(mod_map);
+    else
+        bits = randi([0 1], N * params.bps, 1);
+        X = ofdm_mod(bits, params.mod_type);
+    end
     [x_orig, ~] = ofdm_transmitter(X, params);
+
     % 1) 原始信号
     x_concat(1).data = [x_concat(1).data; x_orig];
     % 2) 仅限幅
@@ -50,38 +65,44 @@ for i = 1:N_sym_psd
     % 6) PTS
     [x_pts, ~, ~] = pts(X, params, 4, 'interleaved', W_pts);
     x_concat(6).data = [x_concat(6).data; x_pts];
-    % 7) Golay 编码
-    [x_gl, ~, ~] = golay_coding(N, params, 16);
+    % 7) Golay 编码（Rate-1/2：同一输入 X）
+    [x_gl, ~, ~] = golay_coding(X, params, 16);
     x_concat(7).data = [x_concat(7).data; x_gl];
 end
 
 % 使用 Welch 方法计算并绘制 PSD
-psd_colors_idx = [1, 2, 2, 6, 3, 4, 7];  % 映射到 plot_config 颜色
+psd_colors_idx = [1, 2, 2, 6, 3, 4, 7];
 psd_lstyles = {'-', '--', '-', '-.', ':', '-', '--'};
 fig = figure('Position', [100, 100, 1000, 600]);
 ax = axes(fig);
 hold(ax, 'on');
-Fs = 1;% 归一化频率
+Fs = 1;
 nfft_psd = 1024;
 
+psd_data = struct();
 for a = 1:n_algo
     [pxx, f] = pwelch(x_concat(a).data, hamming(nfft_psd), nfft_psd/2, nfft_psd, Fs, 'centered');
-    pxx_dB = 10*log10(pxx / max(pxx));  % 归一化到 0 dB 峰值
+    pxx_dB = 10*log10(pxx / max(pxx));
+    psd_data(a).f = f;
+    psd_data(a).pxx = pxx;
+    psd_data(a).pxx_dB = pxx_dB;
     plot(ax, f, pxx_dB, 'Color', colors(psd_colors_idx(a),:), 'LineStyle', psd_lstyles{a}, ...
          'LineWidth', 1.5, 'DisplayName', algo_names{a});
 end
 hold(ax, 'off');
 xlabel(ax, '归一化频率');
 ylabel(ax, '功率谱密度（dB）');
-title(ax, 'PSD 对比：频谱再生分析');
+if params.adaptive
+    title(ax, sprintf('PSD 对比（自适应调制，%s 信道）', params.channel_model));
+else
+    title(ax, 'PSD 对比：频谱再生分析');
+end
 ylim(ax, [-60 5]);
 grid(ax, 'on');
 
-% 图例放在绘图区域外右侧，避免遮挡
 lg = legend(ax, 'Location', 'eastoutside');
 set(lg, 'FontSize', 9);
 
 save_figure(fig, 'fig04_psd_comparison');
-% 保存数据
-save('results/data/psd_results.mat', 'algo_names', 'params');
+save('results/data/psd_results.mat', 'algo_names', 'params', 'psd_data');
 fprintf('实验 3 完成。\n');

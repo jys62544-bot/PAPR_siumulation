@@ -14,13 +14,15 @@ function [x_comp, expand_func] = companding_mu(x, mu)
     comp_mag = v_max * log(1 + mu * mag / v_max) / log(1 + mu);
     x_comp = comp_mag .* exp(1j * phase);
 
-    expand_func = @(y) de_compand_mu(y, mu, v_max);
+    % 解压扩使用接收信号自身的最大幅度，避免信道增益失配
+    expand_func = @(y) de_compand_mu(y, mu);
 end
 
-function x_rec = de_compand_mu(y, mu, v_max)
-% 接收端 μ 律解压扩
+function x_rec = de_compand_mu(y, mu)
+% 接收端 μ 律解压扩（自适应 v_max）
+    v_max_rx = max(abs(y)) + eps;  % eps 防止全零输入时除零
     mag_y = abs(y);
     phase_y = angle(y);
-    rec_mag = v_max * ((1 + mu).^(mag_y / v_max) - 1) / mu;
+    rec_mag = v_max_rx * ((1 + mu).^(mag_y / v_max_rx) - 1) / mu;
     x_rec = rec_mag .* exp(1j * phase_y);
 end
