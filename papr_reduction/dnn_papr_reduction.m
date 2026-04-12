@@ -1,10 +1,6 @@
 function [net_trained, train_info] = dnn_papr_reduction(X_train, params, options, mod_map, H_ch)
-% DNN_PAPR_REDUCTION  基于"限幅 + DNN 逐子载波补偿"的 PAPR 降低方法。
 % 发射端限幅降 PAPR，接收端 DNN 逐子载波补偿限幅失真。
-% 网络输入：单个子载波的 (I, Q, mod_order_norm, H_norm)，输出：补偿后的 (I, Q)。
-% 所有子载波共享同一网络，训练数据量 = N_samples * N_fft。
-%
-% 训练时加入信道效应和多 SNR 噪声，使 DNN 在推理时能适应实际信道条件。
+% 网络输入：单个子载波的 (I, Q, mod_order_norm, H_norm)，输出：补偿后的 (I, Q)，所有子载波共享同一网络，训练数据量 = N_samples * N_fft。
 %
 %   输入：
 %     X_train - N_fft x N_samples 频域符号矩阵
@@ -31,10 +27,9 @@ function [net_trained, train_info] = dnn_papr_reduction(X_train, params, options
     CR = options.CR;
     N_samples = size(X_train, 2);
 
-    %% 生成逐子载波训练对（含信道效应）
-    fprintf('  生成逐子载波训练对 (CR=%.2f, 含信道效应)...\n', CR);
+    fprintf('  生成逐子载波训练对 (CR=%.2f)...\n', CR);
 
-    % 获取信道时域冲激响应（用于卷积）
+    % 获取信道时域冲激响应
     if ~isempty(H_ch)
         % 从 H_ch 反推 h_ch 用于训练数据生成
         H_full = zeros(N_os, 1);
@@ -45,9 +40,9 @@ function [net_trained, train_info] = dnn_papr_reduction(X_train, params, options
         h_ch = [];
     end
 
-    % 训练时使用多种 SNR，覆盖实际推理条件
-    snr_train_range = [0, 5, 10, 15, 20, 25, 30];
-    n_snr = length(snr_train_range);
+    % 训练时使用高 SNR（30 dB），让 DNN 专注学习限幅失真补偿
+    % 低 SNR 下噪声是随机的，DNN 无法学习噪声模式，会严重干扰收敛
+    snr_train = 30;  % dB
 
     X_rx_clip_all = zeros(N, N_samples);  % 接收端均衡后的限幅信号
     X_orig_all = X_train;                 % 标签：原始无失真频域符号
@@ -64,9 +59,8 @@ function [net_trained, train_info] = dnn_papr_reduction(X_train, params, options
         N_cp_os = params.N_cp * L;
         x_cp = [x_clip(end - N_cp_os + 1 : end); x_clip];
 
-        % 选择当前样本使用的 SNR
-        snr_idx = mod(i - 1, n_snr) + 1;
-        snr_i = snr_train_range(snr_idx);
+        % 固定高 SNR 训练
+        snr_i = snr_train;
 
         % 通过信道
         if ~isempty(h_ch)

@@ -1,5 +1,5 @@
 function [y, noise_var] = channel_awgn(x, snr_dB)
-% OFDM系统组件1：加性高斯白噪声信道
+% 加性高斯白噪声信道
 %   输入：
 %     x      - 发送信号，格式为复数列向量
 %     snr_dB - 信噪比（dB）

@@ -1,8 +1,6 @@
 function main_run_all()
 % MAIN_RUN_ALL 按顺序运行全部 6 个仿真实验。
 %   结果保存至 results/figures/ 和 results/data/ 目录。
-%   任何实验失败会立即中止，避免后续实验使用过期数据。
-
     clc; close all;
     fprintf('  OFDM PAPR系统仿真\n');
     fprintf('  %s\n', datetime('now'));
@@ -22,7 +20,6 @@ function main_run_all()
 end
 
 function run_experiment(num, total, script_name)
-% 运行单个实验脚本，失败时中止整个流程
     fprintf('[%d/%d] 正在运行 %s...\n', num, total, script_name);
     run(script_name);
     close all;

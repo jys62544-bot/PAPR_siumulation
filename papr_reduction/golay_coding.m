@@ -1,101 +1,127 @@
-function [x_golay, X_golay, info] = golay_coding(X, params, n_candidates)
-% GOLAY_CODING 基于 Golay 互补序列对的 OFDM PAPR 降低编码法（Rate-1/2）。
+function [x_golay, X_golay, info] = golay_coding(~, params, ~)
+% GOLAY_CODING  Davis-Jedwab Golay 序列编码，PMEPR 严格 ≤ 3 dB
 %
-% 编码原理（Rate-1/2 方案）：
-%   1. 将输入频域符号 X（N x 1）的前 N/2 个视为信息符号 d
-%   2. 生成 Golay 互补序列对 (a, b)，各长 N/2，满足 |A(z)|^2 + |B(z)|^2 = 2·(N/2)
-%   3. 编码：X_coded = [d .* a; d .* b]，利用互补性质约束 PAPR
-%   4. 从 n_candidates 对 Golay 序列中选 PAPR 最低的候选
+% 基于 Davis & Jedwab (1999) "Peak-to-Mean Power Control in OFDM,
+% Golay Complementary Sequences, and Reed-Muller Codes" 的 Corollary 9。
 %
-% 编码率 = 1/2（N/2 个信息符号 → N 个编码符号），数据率减半。
-% 接收端：d_hat = X_hat(1:N/2) .* a（因为 a 是 ±1，a.*a=1）
+% 每个 OFDM 码字是 Z_4 上长度 N=2^m 的 Golay 序列，映射为 QPSK 符号。
+% 信息比特编码到 RM_4(1,m) 的 coset 中，PMEPR 严格 ≤ 2 (即 ≤ 3.01 dB)。
 %
-% 与其他算法的公平比较：
-%   - 使用同一输入 X 的前 N/2 个符号作为信息数据
-%   - 数据率减半是方法固有代价（类似 TR 的频谱效率损失）
-%   - BER 仅统计前 N/2 符号对应的比特
+% 输入：
+%   ~        - 未使用（保持接口兼容）
+%   params   - get_default_params() 返回的参数结构体（需要 N_fft, L）
+%   ~        - 未使用（保持接口兼容）
 %
-%   输入：
-%     X            - 频域数据符号（N_fft x 1），取前 N/2 个作为信息符号
-%     params       - get_default_params() 返回的参数结构体
-%     n_candidates - 候选 Golay 对数（默认 16）
-%   输出：
-%     x_golay  - PAPR 降低后的过采样时域信号（N_fft*L x 1）
-%     X_golay  - 频域编码后的符号（N_fft x 1）
-%     info     - 结构体：
-%                  .papr       - 最优候选的 PAPR (dB)
-%                  .seq_idx    - 最优候选序列编号
-%                  .a_seq      - 最优 Golay 序列 a（N/2 x 1，±1）
-%                  .b_seq      - 最优 Golay 序列 b（N/2 x 1，±1）
-%                  .data_idx   - 信息符号对应的子载波索引（1:N/2）
-
-    if nargin < 3 || isempty(n_candidates)
-        n_candidates = 16;
-    end
+% 输出：
+%   x_golay  - 过采样时域 QPSK Golay 序列 (N_fft*L x 1)
+%   X_golay  - 频域 QPSK 符号 (N_fft x 1)
+%   info     - 结构体：
+%                .papr       - PAPR (dB)
+%                .info_bits  - 发送的信息比特 (n_info x 1)
+%                .n_info     - 信息比特数
+%                .perm_idx   - 排列索引（side information）
+%                .perm       - 所用排列向量
+%                .d_coeffs   - Z_4 线性系数 [d_0; d_1; ...; d_m]
+%                .codeword   - Z_4 码字 (N x 1)
 
     N = params.N_fft;
     L = params.L;
     N_os = N * L;
-    N_half = N / 2;
-    m_half = log2(N_half);  % Golay 对长度 = N/2 = 2^m_half
+    m = log2(N);
+    h = 4;  % QPSK
 
-    % 取前 N/2 个符号作为信息数据
-    d = X(1:N_half);
-
-    best_papr = inf;
-    x_golay = [];
-    X_golay = [];
-    best_idx = 1;
-    best_a = [];
-    best_b = [];
-
-    for c = 1:n_candidates
-        % 生成长度 N/2 的 Golay 互补序列对
-        [a, b] = gen_golay_pair(m_half, c);
-        a = a(:);
-        b = b(:);
-
-        % Rate-1/2 编码：前 N/2 子载波放 d.*a，后 N/2 子载波放 d.*b
-        X_c = [d .* a; d .* b];
-
-        % 过采样 IFFT
-        X_padded = [X_c(1:N/2); zeros((L-1)*N, 1); X_c(N/2+1:end)];
-        x_c = sqrt(N_os) * ifft(X_padded, N_os);
-
-        p = 10 * log10(max(abs(x_c).^2) / mean(abs(x_c).^2));
-
-        if p < best_papr
-            best_papr = p;
-            x_golay = x_c;
-            X_golay = X_c;
-            best_idx = c;
-            best_a = a;
-            best_b = b;
-        end
+    % ========== 排列表（persistent 缓存）==========
+    persistent perm_table perm_table_m
+    if isempty(perm_table) || perm_table_m ~= m
+        perm_table = golay_build_perm_table(m);
+        perm_table_m = m;
     end
+    n_cosets = size(perm_table, 1);
+    K_coset = floor(log2(n_cosets));  % coset 选择比特数
 
-    info.papr     = best_papr;
-    info.seq_idx  = best_idx;
-    info.a_seq    = best_a;   % 接收端还原用
-    info.b_seq    = best_b;
-    info.data_idx = (1:N_half)';  % 信息符号的子载波索引
+    % ========== 随机生成信息比特 ==========
+    n_info = K_coset + 2 * (m + 1);
+    info_bits = randi([0 1], n_info, 1);
+
+    % ========== 编码 ==========
+    [codeword, perm_idx, perm, d_coeffs] = golay_encode(info_bits, m, h, ...
+                                                         K_coset, perm_table);
+
+    % Z_4 → QPSK 符号：exp(j * 2π * c / 4) = j^c
+    X_golay = exp(1j * pi/2 * codeword);
+
+    % 过采样 IFFT
+    X_padded = [X_golay(1:N/2); zeros((L-1)*N, 1); X_golay(N/2+1:end)];
+    x_golay = sqrt(N_os) * ifft(X_padded, N_os);
+
+    % 计算 PAPR
+    papr_val = 10 * log10(max(abs(x_golay).^2) / mean(abs(x_golay).^2));
+
+    % 输出信息
+    info.papr      = papr_val;
+    info.info_bits  = info_bits;
+    info.n_info     = n_info;
+    info.perm_idx   = perm_idx;
+    info.perm       = perm;
+    info.d_coeffs   = d_coeffs;
+    info.codeword   = codeword;
 end
 
-function [a, b] = gen_golay_pair(m, seed)
-% GEN_GOLAY_PAIR 拼接式递归构造长度 2^m 的 Golay 互补序列对（±1）。
-% 使用 [a, W*b] / [a, -W*b] 拼接形式，保证所有元素严格为 ±1。
-    rng_state = rng;
-    rng(seed);
-    a = 1;
-    b = 1;
-    for k = 1:m
-        W = 2 * randi([0 1]) - 1;  % +1 或 -1
-        a_new = [a(:);  W * b(:)];
-        b_new = [a(:); -W * b(:)];
-        a = a_new;
-        b = b_new;
+
+function [codeword, perm_idx, perm, d_coeffs] = golay_encode(info_bits, m, h, K_coset, perm_table)
+% GOLAY_ENCODE  将信息比特编码为 Z_h 上的 Golay 序列码字
+%
+% 码字构造（Corollary 9, h=4）：
+%   c_j = 2 * Σ_{k=1}^{m-1} x_{π(k)} * x_{π(k+1)}
+%         + Σ_{k=1}^{m} d_k * x_k + d_0   (mod h)
+
+    N = 2^m;
+    ptr = 1;
+
+    % 1) Coset 索引 → 排列 π
+    coset_bits = info_bits(ptr : ptr + K_coset - 1);
+    perm_idx = bit2int(coset_bits) + 1;
+    perm_idx = min(perm_idx, size(perm_table, 1));
+    perm = perm_table(perm_idx, :);
+    ptr = ptr + K_coset;
+
+    % 2) 线性系数 d_0, d_1, ..., d_m ∈ Z_h
+    d_coeffs = zeros(m + 1, 1);
+    for k = 0:m
+        bits_2 = info_bits(ptr : ptr + 1);
+        d_coeffs(k + 1) = bits_2(1) * 2 + bits_2(2);
+        ptr = ptr + 2;
     end
-    a = a(:);
-    b = b(:);
-    rng(rng_state);
+
+    % 3) 二进制向量表
+    bin_table = zeros(N, m);
+    for bit = 1:m
+        bin_table(:, bit) = double(bitand(uint32(0:N-1)', uint32(2^(bit-1))) > 0);
+    end
+
+    % 4) 码字计算
+    quad_sum = zeros(N, 1);
+    for k = 1:m-1
+        quad_sum = quad_sum + bin_table(:, perm(k)) .* bin_table(:, perm(k+1));
+    end
+    quad_term = mod(2 * quad_sum, h);
+    linear_term = mod(bin_table * d_coeffs(2:end), h);
+    codeword = mod(quad_term + linear_term + d_coeffs(1), h);
+end
+
+
+function bits = int2bit(val, n_bits)
+    bits = zeros(n_bits, 1);
+    for k = 1:n_bits
+        bits(k) = double(bitand(uint32(val), uint32(2^(n_bits - k))) > 0);
+    end
+end
+
+
+function val = bit2int(bits)
+    n = length(bits);
+    val = 0;
+    for k = 1:n
+        val = val + double(bits(k)) * 2^(n - k);
+    end
 end

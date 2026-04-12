@@ -1,6 +1,5 @@
 % SIM_05_PARAM_SWEEP
 % 扫描各算法关键参数，测量 CCDF=10^-3 处的 PAPR。
-% 支持逐子载波自适应调制。
 clear; clc; close all;
 addpath('core', 'analysis', 'papr_reduction');
 [colors, markers, lstyles] = plot_config();
@@ -14,24 +13,17 @@ N_sym = params.N_sym;
 fprintf('实验 5：参数敏感性分析\n');
 
 %% 自适应调制设置
-if params.adaptive
-    dummy_x = zeros(params.N_os, 1);
-    [~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
-    snr_work = 15;
-    [mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
-    fprintf('自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
-end
+dummy_x = zeros(params.N_os, 1);
+[~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
+snr_work = 15;
+[mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
+fprintf('自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
 
 % 预生成 OFDM 符号
 X_all = zeros(N, N_sym);
 x_orig_all = zeros(params.N_os, N_sym);
 for i = 1:N_sym
-    if params.adaptive
-        [X_all(:, i), ~, ~] = ofdm_mod_adaptive(mod_map);
-    else
-        bits = randi([0 1], N * params.bps, 1);
-        X_all(:, i) = ofdm_mod(bits, params.mod_type);
-    end
+    [X_all(:, i), ~, ~] = ofdm_mod_adaptive(mod_map);
     [x_orig_all(:, i), ~] = ofdm_transmitter(X_all(:, i), params);
 end
 

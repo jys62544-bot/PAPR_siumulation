@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-峰均功率比（PAPR）是 OFDM 系统中的核心问题之一。过高的 PAPR 会导致功率放大器工作在非线性区，引起信号失真和效率下降。本项目实现并对比了 7 种主流 PAPR 降低算法，包括一种基于深度神经网络的"限幅+逐子载波 DNN 补偿"方法。
+峰均功率比（PAPR）是 OFDM 系统中的核心问题之一。过高的 PAPR 会导致功率放大器工作在非线性区，引起信号失真和效率下降。本项目实现并对比了 7 种主流 PAPR 降低算法，包括基于 Davis & Jedwab (1999) 论文的真正 Golay 互补序列编码（PMEPR 严格 ≤ 3 dB），以及一种基于深度神经网络的"限幅+逐子载波 DNN 补偿"方法。
 
 ## 目录结构
 
@@ -19,9 +19,7 @@ OFDM/
 ├── sim_06_dnn_papr.m           # 实验 6：DNN 限幅+逐子载波补偿方法
 │
 ├── core/                       # OFDM 系统核心模块
-│   ├── get_default_params.m    # 默认系统参数（含自适应调制配置）
-│   ├── ofdm_mod.m              # 固定调制星座映射（BPSK/QPSK/16QAM/64QAM/256QAM）
-│   ├── ofdm_demod.m            # 固定调制星座解映射（BPSK/QPSK/16QAM/64QAM/256QAM）
+│   ├── get_default_params.m    # 默认系统参数
 │   ├── ofdm_mod_adaptive.m     # 逐子载波自适应调制映射
 │   ├── ofdm_demod_adaptive.m   # 逐子载波自适应解调映射
 │   ├── adaptive_modulation.m   # 信道自适应调制阶数分配
@@ -38,7 +36,9 @@ OFDM/
 │   ├── pts.m                   # 部分传输序列法（PTS）
 │   ├── tone_reservation.m      # 预留音调法（TR）
 │   ├── companding_mu.m         # μ 律压扩法
-│   ├── golay_coding.m          # Golay 互补序列编码法（Rate-1/2）
+│   ├── golay_coding.m          # Golay Davis-Jedwab 编码（QPSK，PMEPR ≤ 3dB）
+│   ├── golay_decode.m          # Golay 解码器（FHT 算法）
+│   ├── golay_build_perm_table.m # Golay coset 排列表生成
 │   └── dnn_papr_reduction.m    # DNN 限幅+逐子载波补偿法（含条件特征）
 │
 ├── analysis/                   # 分析与可视化工具
@@ -60,9 +60,9 @@ OFDM/
 |------|--------|------|
 | N_fft | 256 | FFT 点数&子载波数 |
 | N_cp | 64 | 循环前缀长度16 |
-| 调制方式 | 16QAM | 非自适应模式默认；支持 BPSK / QPSK / 16QAM / 64QAM / 256QAM |
-| 自适应调制 | 开启 | 逐子载波根据信道 SNR 自适应选择调制方式（固定装载，非动态 AMC） |
-| 信道模型 | ETU | 默认 ITU ETU 多径信道，可选 EPA；adaptive=false 时为纯 AWGN |
+| 调制方式 | 逐子载波自适应 | 根据各子载波信道 SNR 动态选择 BPSK/QPSK/16QAM/64QAM/256QAM |
+| 自适应调制 | 开启（固定装载） | 在工作 SNR=15dB 下一次性分配，所有实验共用（非动态 AMC） |
+| 信道模型 | ETU | ITU ETU 多径信道，可选 EPA |
 | SNR 门限 | [6,12,18,24] dB | 自适应调制切换门限 |
 | 过采样倍数 L | 4 | 精确捕捉连续时间峰值 |
 | 仿真符号数 | 10000 | 保证 CCDF 可靠至 1e-3 |
@@ -77,7 +77,7 @@ OFDM/
 | 部分传输序列（PTS） | 无失真 | 子块数 V，相位因子集 W | O(\|W\|^(V-1)·NL) |
 | 预留音调（TR） | 无失真 | 预留比例，迭代次数 | O(I·NL log NL) |
 | μ 律压扩 | 有失真 | μ 参数 | O(NL) |
-| Golay 互补序列编码 | 编码型 | 候选数，Rate-1/2 | O(C·NL log NL) |
+| Golay Davis-Jedwab 编码 | 编码型 | QPSK，PMEPR ≤ 3dB | O(N·m) |
 | DNN 限幅+逐子载波补偿 | 学习型 | 限幅比 CR | 离线训练 + O(N) 推理 |
 
 ## 实验说明
@@ -86,7 +86,7 @@ OFDM/
 对比 7 种方案的互补累积分布函数，以 PAPR 超越概率 10^-3 作为性能指标。输出：`fig01_ccdf_comparison.png`。
 
 ### 实验 2：BER 对比（`sim_02_ber_comparison.m`）
-在多径信道下测量 7 种算法的误比特率，公平比较原则：所有算法使用同一组输入数据；噪声功率统一基于原始信号功率计算（`channel_awgn_fixed`）；TR 和 Golay 分别按各自有效信息比特统计 BER。输出：`fig02_ber_comparison.png`。
+在多径信道下测量 7 种算法的误比特率，公平比较原则：所有算法使用同一组输入数据；噪声功率统一基于原始信号功率计算（`channel_awgn_fixed`）；TR 按有效信息比特统计 BER；Golay-DJ 独立生成 QPSK Golay 序列，以自身信号功率为参考，按 32 info bits/symbol 统计 BER。输出：`fig02_ber_comparison.png`。
 
 ### 实验 3：PSD 分析（`sim_03_psd_analysis.m`）
 使用 Welch 法估计功率谱密度，重点对比限幅与限幅+滤波在带外频谱再生方面的差异。输出：`fig04_psd_comparison.png`。

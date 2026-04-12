@@ -16,41 +16,24 @@ N_test  = 5000;
 fprintf('实验 6：基于 DNN 的 PAPR 降低（限幅+逐子载波补偿方案）\n');
 
 %% 自适应调制设置
-if params.adaptive
-    dummy_x = zeros(N_os, 1);
-    [~, H_ch, h_ch] = channel_multipath(dummy_x, params, params.channel_model);
-    snr_work = 15;
-    [mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
-    fprintf('  自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
-    fprintf('  N_fft=%d, CR=%.1f\n', N, CR_dnn);
-else
-    fprintf('  N_fft=%d, CR=%.1f, %s\n', N, CR_dnn, params.mod_type);
-    mod_map = [];
-    H_ch = [];
-    h_ch = [];
-end
+dummy_x = zeros(N_os, 1);
+[~, H_ch, h_ch] = channel_multipath(dummy_x, params, params.channel_model);
+snr_work = 15;
+[mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
+fprintf('  自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
+fprintf('  N_fft=%d, CR=%.1f\n', N, CR_dnn);
 
 %% 生成训练集和测试集
 fprintf('正在生成 %d 个训练符号 + %d 个测试符号...\n', N_train, N_test);
 X_train = zeros(N, N_train);
 for i = 1:N_train
-    if params.adaptive
-        [X_train(:, i), ~, ~] = ofdm_mod_adaptive(mod_map);
-    else
-        bits = randi([0 1], N * params.bps, 1);
-        X_train(:, i) = ofdm_mod(bits, params.mod_type);
-    end
+    [X_train(:, i), ~, ~] = ofdm_mod_adaptive(mod_map);
 end
 
 X_test = zeros(N, N_test);
 bits_test = cell(N_test, 1);
 for i = 1:N_test
-    if params.adaptive
-        [X_test(:, i), bits_test{i}, ~] = ofdm_mod_adaptive(mod_map);
-    else
-        bits_test{i} = randi([0 1], N * params.bps, 1);
-        X_test(:, i) = ofdm_mod(bits_test{i}, params.mod_type);
-    end
+    [X_test(:, i), bits_test{i}, ~] = ofdm_mod_adaptive(mod_map);
 end
 
 %% 训练 DNN 逐子载波补偿器
@@ -98,11 +81,11 @@ papr_golay = zeros(N_test, 1);
 for i = 1:N_test
     [~, ~, papr_slm(i)] = slm(X_test(:,i), params, 16, P_slm);
     [~, ~, papr_pts(i)] = pts(X_test(:,i), params, 4, 'interleaved', W_pts);
-    [~, ~, gl_info6] = golay_coding(X_test(:,i), params, 16);
+    [~, ~, gl_info6] = golay_coding([], params);
     papr_golay(i) = gl_info6.papr;
 end
 
-fprintf('PAPR 均值(dB): Original=%.2f, Clip+DNN=%.2f, SLM=%.2f, PTS=%.2f, Golay=%.2f\n', ...
+fprintf('PAPR 均值(dB): Original=%.2f, Clip+DNN=%.2f, SLM=%.2f, PTS=%.2f, Golay-DJ=%.2f\n', ...
     mean(papr_orig), mean(papr_clip), mean(papr_slm), mean(papr_pts), mean(papr_golay));
 
 fig13 = figure('Position', [100, 100, 900, 600]);
@@ -115,18 +98,14 @@ plot(ax13, pa, cc, '--', 'Color', colors(3,:), 'LineWidth', 1.5, 'DisplayName', 
 [pa, cc] = compute_ccdf(papr_pts);
 plot(ax13, pa, cc, '-.', 'Color', colors(4,:), 'LineWidth', 1.5, 'DisplayName', 'PTS (V=4)');
 [pa, cc] = compute_ccdf(papr_golay);
-plot(ax13, pa, cc, '-', 'Color', colors(7,:), 'LineWidth', 1.5, 'DisplayName', 'Golay (N=16)');
+plot(ax13, pa, cc, '-', 'Color', colors(7,:), 'LineWidth', 1.5, 'DisplayName', 'Golay-DJ (QPSK)');
 [pa, cc] = compute_ccdf(papr_clip);
 plot(ax13, pa, cc, '-', 'Color', colors(8,:), 'LineWidth', 2, 'DisplayName', ...
     sprintf('Clip(CR=%.1f)+DNN', CR_dnn));
 hold(ax13, 'off');
 set(ax13, 'YScale', 'log');
 xlabel(ax13, 'PAPR_0 (dB)'); ylabel(ax13, 'Pr(PAPR > PAPR_0)');
-if params.adaptive
     title(ax13, sprintf('CCDF：DNN 与经典方法对比（自适应调制，%s）', params.channel_model));
-else
-    title(ax13, 'CCDF：DNN 与经典方法对比');
-end
 xlim(ax13, [2 14]); ylim(ax13, [1e-3 1]); grid(ax13, 'on');
 lg13 = legend(ax13, 'Location', 'eastoutside');
 set(lg13, 'FontSize', 9);
@@ -143,13 +122,8 @@ ber_clip_dnn = zeros(n_snr, 1);
 dnn_net = net_trained.net;
 
 % 预计算推理用辅助特征
-if params.adaptive
-    mod_feat = single(mod_map / 8);
-    h_feat = single(abs(H_ch) / max(abs(H_ch)));
-else
-    mod_feat = single(ones(N, 1) * params.bps / 8);
-    h_feat = single(ones(N, 1));
-end
+mod_feat = single(mod_map / 8);
+h_feat = single(abs(H_ch) / max(abs(H_ch)));
 
 for s = 1:n_snr
     snr = snr_range(s);
@@ -157,12 +131,7 @@ for s = 1:n_snr
 
     % 固定装载：使用 snr_work 分配的 mod_map，不随 SNR 扫描变化（非动态 AMC）
     for i = 1:min(N_test, 2000)
-        if params.adaptive
-            [X_i, bits_tx, ~] = ofdm_mod_adaptive(mod_map);
-        else
-            bits_tx = bits_test{i};
-            X_i = X_test(:, i);
-        end
+        [X_i, bits_tx, ~] = ofdm_mod_adaptive(mod_map);
         [x_orig, ~, x_orig_cp] = ofdm_transmitter(X_i, params);
 
         % 限幅
@@ -174,36 +143,22 @@ for s = 1:n_snr
         ref_power = mean(abs(x_orig_cp).^2);
 
         % 通过信道
-        if params.adaptive
-            y_mp_orig = conv(x_orig_cp, h_ch);
-            y_mp_orig = y_mp_orig(1:length(x_orig_cp));
-            [y, ~] = channel_awgn_fixed(y_mp_orig, snr, ref_power);
-            y_mp_cl = conv(x_cl_cp, h_ch);
-            y_mp_cl = y_mp_cl(1:length(x_cl_cp));
-            [y_cl, ~] = channel_awgn_fixed(y_mp_cl, snr, ref_power);
-            H_eq = H_ch;
-        else
-            [y, ~] = channel_awgn_fixed(x_orig_cp, snr, ref_power);
-            [y_cl, ~] = channel_awgn_fixed(x_cl_cp, snr, ref_power);
-            H_eq = [];
-        end
+        y_mp_orig = conv(x_orig_cp, h_ch);
+        y_mp_orig = y_mp_orig(1:length(x_orig_cp));
+        [y, ~] = channel_awgn_fixed(y_mp_orig, snr, ref_power);
+        y_mp_cl = conv(x_cl_cp, h_ch);
+        y_mp_cl = y_mp_cl(1:length(x_cl_cp));
+        [y_cl, ~] = channel_awgn_fixed(y_mp_cl, snr, ref_power);
+        H_eq = H_ch;
 
         % Original
         X_hat = ofdm_receiver(y, params, H_eq);
-        if params.adaptive
-            bits_rx = ofdm_demod_adaptive(X_hat, mod_map);
-        else
-            bits_rx = ofdm_demod(X_hat, params.mod_type);
-        end
+        bits_rx = ofdm_demod_adaptive(X_hat, mod_map);
         errs_orig = errs_orig + sum(bits_tx ~= bits_rx);
 
         % 纯限幅
         X_hat_cl = ofdm_receiver(y_cl, params, H_eq);
-        if params.adaptive
-            bits_cl = ofdm_demod_adaptive(X_hat_cl, mod_map);
-        else
-            bits_cl = ofdm_demod(X_hat_cl, params.mod_type);
-        end
+        bits_cl = ofdm_demod_adaptive(X_hat_cl, mod_map);
         errs_clip = errs_clip + sum(bits_tx ~= bits_cl);
 
         % 限幅 + DNN 逐子载波补偿
@@ -212,11 +167,7 @@ for s = 1:n_snr
         X_pred_dl = predict(dnn_net, X_in_dl);
         X_pred = double(extractdata(X_pred_dl));
         X_rec = X_pred(1,:).' + 1j * X_pred(2,:).';
-        if params.adaptive
-            bits_dnn = ofdm_demod_adaptive(X_rec, mod_map);
-        else
-            bits_dnn = ofdm_demod(X_rec, params.mod_type);
-        end
+        bits_dnn = ofdm_demod_adaptive(X_rec, mod_map);
         errs_dnn = errs_dnn + sum(bits_tx ~= bits_dnn);
 
         total_bits = total_bits + length(bits_tx);
@@ -241,11 +192,7 @@ semilogy(ax14, snr_range, ber_clip_dnn, '-s', 'Color', colors(8,:), 'LineWidth',
 hold(ax14, 'off');
 set(ax14, 'YScale', 'log');
 xlabel(ax14, 'SNR (dB)'); ylabel(ax14, '误比特率');
-if params.adaptive
-    title(ax14, sprintf('BER：DNN 补偿 vs 纯限幅（自适应调制，%s）', params.channel_model));
-else
-    title(ax14, 'BER：DNN 补偿 vs 纯限幅 vs 无限幅');
-end
+title(ax14, sprintf('BER：DNN 补偿 vs 纯限幅（自适应调制，%s）', params.channel_model));
 ylim(ax14, [1e-5 1]); grid(ax14, 'on');
 lg14 = legend(ax14, 'Location', 'eastoutside');
 set(lg14, 'FontSize', 9);
@@ -255,11 +202,7 @@ save_figure(fig14, 'fig14_dnn_ber');
 fprintf('绘制星座图...\n');
 snr_const = 20;
 
-if params.adaptive
-    [X_1, ~, ~] = ofdm_mod_adaptive(mod_map);
-else
-    X_1 = X_test(:, 1);
-end
+[X_1, ~, ~] = ofdm_mod_adaptive(mod_map);
 
 [~, ~, x_orig_cp] = ofdm_transmitter(X_1, params);
 A_1 = CR_dnn * rms(x_orig_cp(params.N_cp*L+1:end));
@@ -268,17 +211,11 @@ x_cl_1_cp = cp_add(x_cl_1, params);
 
 ref_power_const = mean(abs(x_orig_cp).^2);
 
-if params.adaptive
-    y_mp = conv(x_orig_cp, h_ch); y_mp = y_mp(1:length(x_orig_cp));
-    [y_orig, ~] = channel_awgn_fixed(y_mp, snr_const, ref_power_const);
-    y_mp_cl = conv(x_cl_1_cp, h_ch); y_mp_cl = y_mp_cl(1:length(x_cl_1_cp));
-    [y_cl, ~] = channel_awgn_fixed(y_mp_cl, snr_const, ref_power_const);
-    H_eq = H_ch;
-else
-    [y_orig, ~] = channel_awgn_fixed(x_orig_cp, snr_const, ref_power_const);
-    [y_cl, ~] = channel_awgn_fixed(x_cl_1_cp, snr_const, ref_power_const);
-    H_eq = [];
-end
+y_mp = conv(x_orig_cp, h_ch); y_mp = y_mp(1:length(x_orig_cp));
+[y_orig, ~] = channel_awgn_fixed(y_mp, snr_const, ref_power_const);
+y_mp_cl = conv(x_cl_1_cp, h_ch); y_mp_cl = y_mp_cl(1:length(x_cl_1_cp));
+[y_cl, ~] = channel_awgn_fixed(y_mp_cl, snr_const, ref_power_const);
+H_eq = H_ch;
 
 X_hat_orig = ofdm_receiver(y_orig, params, H_eq);
 X_hat_cl_1 = ofdm_receiver(y_cl, params, H_eq);

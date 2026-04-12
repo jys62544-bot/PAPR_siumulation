@@ -1,5 +1,5 @@
 function [y, H, h] = channel_multipath(x, params, model_type)
-% OFDM系统组件2：多径衰落信道。
+% 多径衰落信道。
 %   输入：
 %     x          - 发送时域信号
 %     params     - get_default_params() 返回的参数结构体
@@ -36,6 +36,9 @@ function [y, H, h] = channel_multipath(x, params, model_type)
     for i = 1:length(delay_samples)
         h(delay_samples(i) + 1) = h(delay_samples(i) + 1) + h_coeffs(i);
     end
+
+    % 归一化信道冲激响应为单位功率，保证卷积后信号平均功率不变
+    h = h / sqrt(sum(abs(h).^2));
 
     y = conv(x, h);
     y = y(1:length(x));

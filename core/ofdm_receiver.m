@@ -1,5 +1,5 @@
 function X_hat = ofdm_receiver(y_os, params, H)
-% OFDM系统组件6：从时域信号中恢复频域符号。
+% 从时域信号中恢复频域符号。
 % 自动检测输入是否含循环前缀，若含则先去除 CP 再做 FFT。
 %   输入：
 %     y_os   - 接收到的过采样时域信号（可含或不含 CP）

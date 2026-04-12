@@ -1,6 +1,5 @@
 % SIM_04_COMPLEXITY
 % 测量各 PAPR 降低算法的计算复杂度。
-% 支持逐子载波自适应调制。
 clear; clc; close all;
 addpath('core', 'analysis', 'papr_reduction');
 [colors, markers, lstyles] = plot_config();
@@ -12,26 +11,18 @@ N_trials = 500;
 
 fprintf('实验 4：复杂度分析\n');
 
-%% 自适应调制设置
-if params.adaptive
-    dummy_x = zeros(params.N_os, 1);
-    [~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
-    snr_work = 15;
-    [mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
-    fprintf('自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
-end
+dummy_x = zeros(params.N_os, 1);
+[~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
+snr_work = 15;
+[mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
+fprintf('自适应调制，%s 信道，平均 bps=%.2f\n', params.channel_model, mean(mod_map));
 
 % 预生成测试数据
-if params.adaptive
-    [X, ~, ~] = ofdm_mod_adaptive(mod_map);
-else
-    bits = randi([0 1], N * params.bps, 1);
-    X = ofdm_mod(bits, params.mod_type);
-end
+[X, ~, ~] = ofdm_mod_adaptive(mod_map);
 [x_orig, ~] = ofdm_transmitter(X, params);
 
 algo_names = {'Clipping', 'SLM(U=8)', ...
-              'PTS(V=4)', 'Tone Res.', 'mu-law', 'Golay(N=16)'};
+              'PTS(V=4)', 'Tone Res.', 'mu-law', 'Golay-DJ'};
 n_algo = length(algo_names);
 
 theory_labels = {
@@ -40,7 +31,7 @@ theory_labels = {
     'O(|W|^{V-1} \cdot NL)';
     'O(I \cdot NL\log NL)';
     'O(NL)';
-    'O(C \cdot NL\log NL)';
+    'O(N \cdot m)';
 };
 
 runtimes = zeros(n_algo, 1);
@@ -51,15 +42,10 @@ W_pts = [1, -1, 1j, -1j];
 % 预热
 clipping_filtering(x_orig, params, 1.2);
 companding_mu(x_orig, 10);
-golay_coding(X, params, 16);
+golay_coding([], params);
 
 for trial = 1:N_trials
-    if params.adaptive
-        [X_t, ~, ~] = ofdm_mod_adaptive(mod_map);
-    else
-        bits_t = randi([0 1], N * params.bps, 1);
-        X_t = ofdm_mod(bits_t, params.mod_type);
-    end
+    [X_t, ~, ~] = ofdm_mod_adaptive(mod_map);
     [x_t, ~] = ofdm_transmitter(X_t, params);
 
     tic; clipping_filtering(x_t, params, 1.2); runtimes(1) = runtimes(1) + toc;

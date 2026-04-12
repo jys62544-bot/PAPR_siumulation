@@ -1,6 +1,5 @@
 % SIM_03_PSD_ANALYSIS
 % 对比 PAPR 降低后各信号的功率谱密度。
-% 支持逐子载波自适应调制。
 clear; clc; close all;
 addpath('core', 'analysis', 'papr_reduction');
 [colors, markers, lstyles] = plot_config();
@@ -14,19 +13,17 @@ N_sym_psd = 200;
 fprintf('实验 3：PSD 分析\n');
 
 %% 自适应调制设置
-if params.adaptive
-    dummy_x = zeros(N_os, 1);
-    [~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
-    snr_work = 15;
-    [mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
-    fprintf('自适应调制，%s 信道，工作 SNR=%d dB，平均 bps=%.2f\n', ...
-        params.channel_model, snr_work, mean(mod_map));
-end
+dummy_x = zeros(N_os, 1);
+[~, H_ch, ~] = channel_multipath(dummy_x, params, params.channel_model);
+snr_work = 15;
+[mod_map, ~] = adaptive_modulation(H_ch, snr_work, params.snr_thresholds);
+fprintf('自适应调制，%s 信道，工作 SNR=%d dB，平均 bps=%.2f\n', ...
+    params.channel_model, snr_work, mean(mod_map));
 
 % 拼接多个符号用于频谱估计
 x_concat = struct();
 algo_names = {'Original', 'Clipping (CR=0.8)', 'Clipping+Filter (CR=0.8)', ...
-              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)', 'Golay (N=16)'};
+              'mu-law (mu=10)', 'SLM (U=8)', 'PTS (V=4)', 'Golay-DJ (QPSK)'};
 n_algo = length(algo_names);
 
 for a = 1:n_algo
@@ -38,12 +35,7 @@ P_slm(:,1) = ones(N,1);
 W_pts = [1, -1, 1j, -1j];
 
 for i = 1:N_sym_psd
-    if params.adaptive
-        [X, ~, ~] = ofdm_mod_adaptive(mod_map);
-    else
-        bits = randi([0 1], N * params.bps, 1);
-        X = ofdm_mod(bits, params.mod_type);
-    end
+    [X, ~, ~] = ofdm_mod_adaptive(mod_map);
     [x_orig, ~] = ofdm_transmitter(X, params);
 
     % 1) 原始信号
@@ -65,8 +57,8 @@ for i = 1:N_sym_psd
     % 6) PTS
     [x_pts, ~, ~] = pts(X, params, 4, 'interleaved', W_pts);
     x_concat(6).data = [x_concat(6).data; x_pts];
-    % 7) Golay 编码（Rate-1/2：同一输入 X）
-    [x_gl, ~, ~] = golay_coding(X, params, 16);
+    % 7) Golay Davis-Jedwab 编码
+    [x_gl, ~, ~] = golay_coding([], params);
     x_concat(7).data = [x_concat(7).data; x_gl];
 end
 
@@ -92,11 +84,7 @@ end
 hold(ax, 'off');
 xlabel(ax, '归一化频率');
 ylabel(ax, '功率谱密度（dB）');
-if params.adaptive
-    title(ax, sprintf('PSD 对比（自适应调制，%s 信道）', params.channel_model));
-else
-    title(ax, 'PSD 对比：频谱再生分析');
-end
+title(ax, sprintf('PSD 对比（自适应调制，%s 信道）', params.channel_model));
 ylim(ax, [-60 5]);
 grid(ax, 'on');
 

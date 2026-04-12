@@ -1,0 +1,6 @@
+# Claude Code memory bank (private, not for repo)
+memory/
+
+# MATLAB temp files
+*.asv
+*.m~
