@@ -1,6 +1,6 @@
 function main_run_all()
 % MAIN_RUN_ALL 按顺序运行全部 6 个仿真实验。
-%   结果保存至 results/figures/ 和 results/data/ 目录。
+% 结果保存至 results/figures/ 和 results/data/ 目录。
     clc; close all;
     fprintf('  OFDM PAPR系统仿真\n');
     fprintf('  %s\n', datetime('now'));

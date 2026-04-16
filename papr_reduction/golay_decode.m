@@ -25,23 +25,23 @@ function info_bits = golay_decode(rx_symbols, params, perm_idx)
     K_coset = floor(log2(size(perm_table_dec, 1)));
     perm = perm_table_dec(perm_idx, :);
 
-    % ========== 量化接收符号到 Z_4 ==========
+    % 量化接收符号到 Z_4
     % QPSK: j^c → c ∈ {0,1,2,3}
     phases = angle(rx_symbols);
     phases = mod(phases, 2*pi);
     rx_z4 = mod(round(phases / (pi/2)), h);
 
-    % ========== 构造二进制向量表 ==========
+    % 构造二进制向量表
     bin_table = zeros(N, m);
     for bit = 1:m
         bin_table(:, bit) = double(bitand(uint32(0:N-1)', uint32(2^(bit-1))) > 0);
     end
 
-    % ========== Algorithm 14: 逐阶 FHT 解码 (h=4, 2 passes) ==========
+    % Algorithm 14: 逐阶 FHT 解码 (h=4, 2 passes)
     r = rx_z4;
     d_coeffs = zeros(m + 1, 1);
 
-    % ---------- Pass t=0: 处理 mod 2 ----------
+    % Pass t=0: 处理 mod 2
     % 二阶项 mod 2 = 0（因为系数 2 ≡ 0 mod 2）
     % 所以 r mod 2 = Σ d_k*x_k + d_0 (mod 2) → RM(1,m) 码字
     r_mod2 = mod(r, 2);
@@ -59,7 +59,7 @@ function info_bits = golay_decode(rx_symbols, params, perm_idx)
     end
     d0_mod2 = double(H_transform(max_pos + 1) < 0);
 
-    % ---------- Pass t=1: 恢复完整 Z_4 系数 ----------
+    % Pass t=1: 恢复完整 Z_4 系数
     % 计算并减去二阶项
     quad_sum = zeros(N, 1);
     for k = 1:m-1
@@ -92,7 +92,7 @@ function info_bits = golay_decode(rx_symbols, params, perm_idx)
     end
     d_coeffs(1) = mod(d0_mod2 + 2 * d0_high, h);
 
-    % ========== 组装信息比特 ==========
+    % 组装信息比特
     n_info = K_coset + 2 * (m + 1);
     info_bits = zeros(n_info, 1);
 
@@ -131,7 +131,7 @@ end
 
 
 function bits = golay_int2bit(val, n_bits)
-% GOLAY_INT2BIT  整数转二进制比特向量（MSB first）
+% GOLAY_INT2BIT  整数转二进制比特向量
     bits = zeros(n_bits, 1);
     for k = 1:n_bits
         bits(k) = double(bitand(uint32(val), uint32(2^(n_bits - k))) > 0);

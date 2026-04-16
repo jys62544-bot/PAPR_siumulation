@@ -84,7 +84,7 @@ if exist('results/data/ccdf_results.mat', 'file')
     end
     loaded = load('results/data/ccdf_results.mat');
     papr_at_1e3 = prctile(loaded.papr_results, 99.9);
-    % papr_results 列: Original, Clipping, SLM, PTS, TR, mu-law, Golay（共 7 列）
+    % papr_results 列: Original, Clipping, SLM, PTS, TR, mu-law, Golay
     papr_reduction = papr_at_1e3(1) - papr_at_1e3(2:end);  % 6 个算法
 
     fig2 = figure('Position', [100, 100, 900, 600]);

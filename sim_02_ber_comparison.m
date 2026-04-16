@@ -1,6 +1,7 @@
 % SIM_02_BER_COMPARISON
 % 对比 PAPR 降低算法在多径信道下的 BER vs SNR 曲线。
-% 支持逐子载波自适应调制（固定装载方案）。
+%
+% 支持逐子载波自适应调制与固定装载。
 %
 % 公平比较原则：
 %   1) 所有算法使用同一组用户数据比特
@@ -63,10 +64,10 @@ for s = 1:n_snr
         [X, bits_tx, ~] = ofdm_mod_adaptive(mod_map);
         [x_orig, ~, x_orig_cp] = ofdm_transmitter(X, params);
 
-        % 计算原始信号的参考功率（用于统一噪声注入）
+        % 计算原始信号的参考功率
         ref_power = mean(abs(x_orig_cp).^2);
 
-        % ========== 算法 1：原始信号 ==========
+        % 算法 1：原始信号
         y_mp = conv(x_orig_cp, h_ch);
         y_mp = y_mp(1:length(x_orig_cp));
         [y, ~] = channel_awgn_fixed(y_mp, snr, ref_power);
@@ -75,7 +76,7 @@ for s = 1:n_snr
         bits_rx = ofdm_demod_adaptive(X_hat, mod_map);
         bit_errors(1) = bit_errors(1) + sum(bits_tx ~= bits_rx);
 
-        % ========== 算法 2：限幅滤波 ==========
+        % 算法 2：限幅滤波
         [x_cl, ~] = clipping_filtering(x_orig, params, 1.2);
         x_cl_cp = cp_add(x_cl, params);
         y_mp_cl = conv(x_cl_cp, h_ch);
@@ -85,7 +86,7 @@ for s = 1:n_snr
         bits_cl = ofdm_demod_adaptive(X_hat_cl, mod_map);
         bit_errors(2) = bit_errors(2) + sum(bits_tx ~= bits_cl);
 
-        % ========== 算法 3：SLM（side information 假设完美已知）==========
+        % 算法 3：SLM（side information 假设完美已知）
         [x_slm, u_sel, ~, ~] = slm(X, params, 8, P_slm);
         x_slm_cp = cp_add(x_slm, params);
         y_mp_slm = conv(x_slm_cp, h_ch);
@@ -96,7 +97,7 @@ for s = 1:n_snr
         bits_slm = ofdm_demod_adaptive(X_hat_slm, mod_map);
         bit_errors(3) = bit_errors(3) + sum(bits_tx ~= bits_slm);
 
-        % ========== 算法 4：PTS（side information 假设完美已知）==========
+        % 算法 4：PTS（side information 假设完美已知）
         [x_pts, b_opt, ~] = pts(X, params, V_pts, 'interleaved', W_pts);
         x_pts_cp = cp_add(x_pts, params);
         y_mp_pts = conv(x_pts_cp, h_ch);
@@ -109,7 +110,7 @@ for s = 1:n_snr
         bits_pts = ofdm_demod_adaptive(X_hat_pts, mod_map);
         bit_errors(4) = bit_errors(4) + sum(bits_tx ~= bits_pts);
 
-        % ========== 算法 5：预留音调（数据率损失 ~10%）==========
+        % 算法 5：预留音调（数据率损失 ~10%）
         [x_tr, ~, reserved_idx] = tone_reservation(X, params, 0.10, 30);
         x_tr_cp = cp_add(x_tr, params);
         y_mp_tr = conv(x_tr_cp, h_ch);
@@ -131,7 +132,7 @@ for s = 1:n_snr
         bit_errors(5) = bit_errors(5) + sum(bits_tx(data_mask_tr) ~= bits_tr(data_mask_tr));
         total_bits_tr = total_bits_tr + sum(data_mask_tr);
 
-        % ========== 算法 6：μ 律压扩 ==========
+        % 算法 6：μ 律压扩
         [x_mu, expand_mu] = companding_mu(x_orig, 10);
         x_mu_cp = cp_add(x_mu, params);
         y_mp_mu = conv(x_mu_cp, h_ch);
@@ -150,7 +151,7 @@ for s = 1:n_snr
         bits_mu = ofdm_demod_adaptive(X_hat_mu, mod_map);
         bit_errors(6) = bit_errors(6) + sum(bits_tx ~= bits_mu);
 
-        % ========== 算法 7：Golay Davis-Jedwab 编码（QPSK，PMEPR ≤ 3dB）==========
+        % 算法 7：Golay Davis-Jedwab 编码（QPSK，PMEPR ≤ 3dB）
         % 编码：随机信息比特 → Golay 序列（QPSK 符号）
         [x_gl, X_gl, gl_info] = golay_coding([], params);
         info_bits_tx = gl_info.info_bits;
@@ -161,7 +162,7 @@ for s = 1:n_snr
         y_mp_gl = y_mp_gl(1:length(x_gl_cp));
         [y_gl, ~] = channel_awgn_fixed(y_mp_gl, snr, ref_power_gl);
         X_hat_gl = ofdm_receiver(y_gl, params, H_eq);
-        % 解码（coset index 作为 side info 假设完美已知）
+        % 解码，coset index 作为 side info 假设完美已知。
         info_bits_rx = golay_decode(X_hat_gl, params, gl_info.perm_idx);
         bit_errors(7) = bit_errors(7) + sum(info_bits_tx ~= info_bits_rx);
         total_bits_golay = total_bits_golay + gl_info.n_info;

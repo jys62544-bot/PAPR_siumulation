@@ -1,16 +1,9 @@
 function [x_golay, X_golay, info] = golay_coding(~, params, ~)
 % GOLAY_CODING  Davis-Jedwab Golay 序列编码，PMEPR 严格 ≤ 3 dB
-%
-% 基于 Davis & Jedwab (1999) "Peak-to-Mean Power Control in OFDM,
-% Golay Complementary Sequences, and Reed-Muller Codes" 的 Corollary 9。
-%
-% 每个 OFDM 码字是 Z_4 上长度 N=2^m 的 Golay 序列，映射为 QPSK 符号。
-% 信息比特编码到 RM_4(1,m) 的 coset 中，PMEPR 严格 ≤ 2 (即 ≤ 3.01 dB)。
-%
+% 基于 Davis & Jedwab (1999) "Peak-to-Mean Power Control in OFDM, Golay Complementary Sequences, and Reed-Muller Codes" 的 Corollary 9。
+% 每个 OFDM 码字是 Z_4 上长度 N=2^m 的 Golay 序列，映射为 QPSK 符号。信息比特编码到 RM_4(1,m) 的 coset 中，PMEPR 严格 ≤ 2 (即 ≤ 3.01 dB)。
 % 输入：
-%   ~        - 未使用（保持接口兼容）
 %   params   - get_default_params() 返回的参数结构体（需要 N_fft, L）
-%   ~        - 未使用（保持接口兼容）
 %
 % 输出：
 %   x_golay  - 过采样时域 QPSK Golay 序列 (N_fft*L x 1)
@@ -23,14 +16,13 @@ function [x_golay, X_golay, info] = golay_coding(~, params, ~)
 %                .perm       - 所用排列向量
 %                .d_coeffs   - Z_4 线性系数 [d_0; d_1; ...; d_m]
 %                .codeword   - Z_4 码字 (N x 1)
-
     N = params.N_fft;
     L = params.L;
     N_os = N * L;
     m = log2(N);
     h = 4;  % QPSK
 
-    % ========== 排列表（persistent 缓存）==========
+    % 排列表
     persistent perm_table perm_table_m
     if isempty(perm_table) || perm_table_m ~= m
         perm_table = golay_build_perm_table(m);
@@ -39,11 +31,11 @@ function [x_golay, X_golay, info] = golay_coding(~, params, ~)
     n_cosets = size(perm_table, 1);
     K_coset = floor(log2(n_cosets));  % coset 选择比特数
 
-    % ========== 随机生成信息比特 ==========
+    % 随机生成信息比特
     n_info = K_coset + 2 * (m + 1);
     info_bits = randi([0 1], n_info, 1);
 
-    % ========== 编码 ==========
+    % 编码
     [codeword, perm_idx, perm, d_coeffs] = golay_encode(info_bits, m, h, ...
                                                          K_coset, perm_table);
 

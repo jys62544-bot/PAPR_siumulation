@@ -5,11 +5,9 @@ addpath('core', 'analysis', 'papr_reduction');
 [colors, markers, lstyles] = plot_config();
 params = get_default_params();
 rng(42);
-
 N = params.N_fft;
 N_os = params.N_os;
 N_sym_psd = 200;
-
 fprintf('实验 3：PSD 分析\n');
 
 %% 自适应调制设置

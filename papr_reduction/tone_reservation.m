@@ -2,7 +2,7 @@ function [x_reduced, C, reserved_idx] = tone_reservation(X, params, reserved_rat
 % 预留子载波法降低 PAPR，保留一部分子载波用于承载峰值抵消信号，
 % 采用经典的基于限幅的梯度投影算法（Tellado 算法）进行优化。
 %
-% 注意：预留子载波上的原始数据会被置零，因此有效数据率降低为
+% 预留子载波上的原始数据会被置零，因此有效数据率降低为
 % (1 - reserved_ratio) 倍。在 BER 统计时应排除预留子载波上的比特。
 %   输入：
 %     X              - 频域数据（N_fft x 1）

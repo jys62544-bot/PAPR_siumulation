@@ -1,6 +1,9 @@
 # Claude Code memory bank (private, not for repo)
 memory/
 
+# Limitations doc (content integrated into README)
+LIMITATIONS.md
+
 # MATLAB temp files
 *.asv
 *.m~
